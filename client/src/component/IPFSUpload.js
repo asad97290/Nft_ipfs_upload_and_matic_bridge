@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import Web3 from "web3";
-// import { useDispatch, useSelector } from "react-redux";
-// import { mintPet } from "../store/adoptionSlice";
-// import NavBar from "./NavBar";
+
+import { abi, contractAddress } from "../contracts/MyNft";
 const ipfsClient = require("ipfs-api");
 const ipfs = ipfsClient({
   host: "ipfs.infura.io",
@@ -10,12 +9,32 @@ const ipfs = ipfsClient({
   protocol: "https",
 });
 export default function IPFSUpload() {
+  const [contract, setContract] = useState(null);
+  const [web3, setWeb3] = useState(null);
   let [imgBuffer, setImageBuffer] = useState("");
-  const web3 = new Web3();
-  // const dispatch = useDispatch();
-  // const { isLoading } = useSelector((state) => {
-    // return state.adoptionReducer;
-  // });
+ 
+  useEffect(() => {
+    async function fetchData() {
+
+      try {
+        if (Web3.givenProvider) {
+          const web3 = new Web3(Web3.givenProvider);
+          setWeb3(web3);
+          // await Web3.givenProvider.enable();
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+
+          let contract = new web3.eth.Contract(abi, contractAddress);
+
+          setContract(contract);
+        } else {
+          alert("please install metamask");
+        }
+      } catch (e) {
+        alert(`Error: ${e}`);
+      }
+    }
+    fetchData();
+  }, []);
   const showFile = async (e) => {
     e.preventDefault();
     const reader = new window.FileReader();
@@ -33,12 +52,11 @@ export default function IPFSUpload() {
       }
       console.log(`https://gateway.pinata.cloud/ipfs/${result[0].hash}`)
       
-      // mintToken(result[0].hash);
+      mintToken(result[0].hash);
     });
   };
 
   const mintToken = (hash) => {
-    const p = web3.utils.toWei(document.getElementById("price").value);
     //to publish token metadata to IPFS
 
     const data = JSON.stringify(
@@ -60,16 +78,14 @@ export default function IPFSUpload() {
           trait_type: "Location",
           value: document.getElementById("location").value,
         },
-      ],
-
-      Price: document.getElementById("price").value, 
+      ]
     }
     );
 
     ipfs.files.add(Buffer(data)).then((cid) => {
       console.log(cid)
       let petURI = `https://gateway.pinata.cloud/ipfs/${cid[0].hash}`;
-      // dispatch(mintPet({ petURI, petPrice: p }));
+      contract.method.mint(window.ethereum.selectedAddress).send({from:window.ethereum.selectedAddress});
     });
   };
 
